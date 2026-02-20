@@ -1,0 +1,171 @@
+{
+  "identity": {
+    "name": "E1",
+    "persona": "The Anti-AI Designer",
+    "tone": "Clean, Professional, Direct, High-Performance",
+    "archetype": "ARCHETYPE 2: THE PERFORMANCE PRO (Adapted for Light Theme)",
+    "mission": "Create a hyper-clean, accessible, and efficient management tool for non-technical gym owners."
+  },
+  "project_scope": {
+    "type": "Dashboard / SaaS",
+    "target_audience": "Neighborhood Gym Owners (Non-technical)",
+    "theme_strategy": "Light Mode Only (Clean, Spacious, Trustworthy)",
+    "core_features": [
+      "Manual Member Management (CRUD)",
+      "Manual Payment Recording",
+      "Financial & Member Metrics Dashboard",
+      "Expiration Alerts (In-app only)"
+    ]
+  },
+  "design_system": {
+    "colors": {
+      "strategy": "High Contrast Light Mode",
+      "palette": {
+        "primary": {
+          "name": "Active Blue",
+          "hex": "#2563EB",
+          "tailwind": "bg-blue-600",
+          "text": "text-blue-600",
+          "usage": "Primary buttons, active states, key highlights"
+        },
+        "secondary": {
+          "name": "Slate Dark",
+          "hex": "#0F172A",
+          "tailwind": "bg-slate-900",
+          "text": "text-slate-900",
+          "usage": "Headings, strong borders, primary navigation"
+        },
+        "background": {
+          "page": "#F8FAFC",
+          "surface": "#FFFFFF",
+          "tailwind_page": "bg-slate-50",
+          "tailwind_surface": "bg-white"
+        },
+        "functional": {
+          "success": "#10B981", 
+          "success_bg": "#D1FAE5",
+          "warning": "#F59E0B",
+          "warning_bg": "#FEF3C7",
+          "danger": "#EF4444",
+          "danger_bg": "#FEE2E2",
+          "text_muted": "#64748B"
+        }
+      },
+      "rules": [
+        "NO gradients for backgrounds. Solid, clean colors only.",
+        "Use subtle borders (border-slate-200) instead of heavy shadows.",
+        "Status badges must use pastel backgrounds with dark text (e.g., bg-green-100 text-green-800)."
+      ]
+    },
+    "typography": {
+      "font_family": {
+        "headings": "Manrope, sans-serif",
+        "body": "Inter, sans-serif",
+        "mono": "JetBrains Mono, monospace"
+      },
+      "scaling": {
+        "h1": "text-3xl md:text-4xl font-bold tracking-tight",
+        "h2": "text-2xl font-semibold tracking-tight",
+        "h3": "text-xl font-semibold",
+        "body": "text-sm md:text-base leading-relaxed",
+        "small": "text-xs font-medium text-slate-500"
+      },
+      "rules": [
+        "Headings must be Dark Slate (#0F172A).",
+        "Body text must be Slate-600 or Slate-700 for optimal readability.",
+        "Never use pure black (#000000)."
+      ]
+    },
+    "spacing": {
+      "scale": "Tailwind standard (p-4, p-6, p-8)",
+      "container_padding": "p-6 md:p-8",
+      "grid_gap": "gap-6",
+      "rules": [
+        "Dashboard cards must have p-6 padding.",
+        "Forms must have generous spacing between fields (gap-5)."
+      ]
+    },
+    "radius": {
+      "default": "rounded-lg",
+      "cards": "rounded-xl",
+      "buttons": "rounded-md",
+      "inputs": "rounded-md"
+    },
+    "shadows": {
+      "card": "shadow-sm border border-slate-200",
+      "hover": "shadow-md transition-shadow duration-200",
+      "dropdown": "shadow-lg border border-slate-100"
+    }
+  },
+  "layout_strategy": {
+    "dashboard": {
+      "type": "Bento Grid (Mode B - High Density)",
+      "structure": [
+        "Top Row: 3-4 Key Metric Cards (Total Active, Monthly Revenue, Expiring Soon).",
+        "Main Section: Split 2/3 (Growth Chart) and 1/3 (Recent Activity / Quick Actions).",
+        "Bottom Section: Table of Members expiring this week."
+      ]
+    },
+    "navigation": {
+      "style": "Sidebar (Left, Fixed)",
+      "mobile": "Hamburger menu drawer",
+      "items": ["Dashboard", "Socios (Members)", "Pagos (Payments)", "Configuración"]
+    },
+    "containers": {
+      "main_wrapper": "max-w-7xl mx-auto w-full",
+      "card_style": "bg-white border border-slate-200 rounded-xl shadow-sm"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-medium",
+      "secondary": "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50",
+      "danger": "bg-white border border-red-200 text-red-600 hover:bg-red-50"
+    },
+    "cards": {
+      "metric": "p-6 flex flex-col justify-between h-full bg-white rounded-xl border border-slate-200",
+      "default": "bg-white rounded-xl border border-slate-200 overflow-hidden"
+    },
+    "tables": {
+      "style": "Simple, clean rows with hover state (hover:bg-slate-50). Header text-xs uppercase tracking-wider text-slate-500.",
+      "actions": "Right-aligned action menu (Edit, Delete, Register Payment)."
+    },
+    "forms": {
+      "style": "Labels above inputs. Inputs with subtle border (border-slate-300) and focus ring (ring-blue-100)."
+    },
+    "feedback": {
+      "toast": "Use Sonner. Position: Bottom-Right.",
+      "alerts": "In-card alerts for expiring memberships."
+    }
+  },
+  "assets": {
+    "images": [
+      {
+        "category": "auth_background",
+        "url": "https://images.unsplash.com/photo-1761971975973-cbb3e59263de?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwxfHxicmlnaHQlMjBtb2Rlcm4lMjBneW0lMjBpbnRlcmlvciUyMG1pbmltYWxpc3R8ZW58MHx8fHwxNzcxNTQ1ODExfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Bright, modern yoga studio/gym interior. Use for Login/Register split screen background."
+      }
+    ],
+    "icons": {
+      "library": "lucide-react",
+      "style": "Stroke width 1.5 or 2px. Color: Slate-500 (inactive) / Blue-600 (active)."
+    }
+  },
+  "universal_guidelines": [
+    "NO gradients. Solid colors only.",
+    "NO dark mode for this MVP (keep it simple for now).",
+    "Language: Spanish (Context: 'Socios', 'Pagos', 'Vencimientos').",
+    "Dates: Format as DD/MM/YYYY.",
+    "Currency: Use generic '$' or local currency format, but keep it consistent.",
+    "Input validation is critical - Gym owners hate bad data.",
+    "Data-testids are MANDATORY for all interactive elements.",
+    "Use 'sonner' for all notifications (Success/Error)."
+  ],
+  "instructions_to_main_agent": {
+    "step_1": "Setup the Layout with a Sidebar and Topbar structure.",
+    "step_2": "Create the 'Dashboard' view with 4 metric cards and a 'Recent Payments' list.",
+    "step_3": "Implement the 'Socios' (Members) CRUD page. Must include status badges (Active/Expired).",
+    "step_4": "Implement the 'Pagos' (Payments) page with manual entry form.",
+    "step_5": "Ensure the Login page uses the provided image and looks professional."
+  }
+}
