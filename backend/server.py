@@ -72,18 +72,22 @@ class TokenResponse(BaseModel):
 
 class SocioCreate(BaseModel):
     nombre: str
+    apellido: str
     email: Optional[str] = None
     telefono: Optional[str] = None
     direccion: Optional[str] = None
+    dni: str
 
 class Socio(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str
     socio_id: str
     nombre: str
+    apellido: Optional[str] = None
     email: Optional[str] = None
     telefono: Optional[str] = None
     direccion: Optional[str] = None
+    dni: Optional[str] = None
     fecha_registro: str
     estado: str
     fecha_vencimiento: Optional[str] = None
@@ -274,7 +278,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 async def crear_socio(socio_data: SocioCreate, current_user: dict = Depends(get_current_user)):
     count = await db.socios.count_documents({})
     socio_id = f"GYM-{count + 1:04d}"
-    socio_doc = {'id': str(uuid.uuid4()), 'socio_id': socio_id, 'nombre': socio_data.nombre, 'email': socio_data.email, 'telefono': socio_data.telefono, 'direccion': socio_data.direccion, 'fecha_registro': datetime.now(timezone.utc).isoformat(), 'estado': 'vencido', 'fecha_vencimiento': None}
+    socio_doc = {'id': str(uuid.uuid4()), 'socio_id': socio_id, 'nombre': socio_data.nombre, 'apellido': socio_data.apellido, 'email': socio_data.email, 'telefono': socio_data.telefono, 'direccion': socio_data.direccion, 'dni': socio_data.dni, 'fecha_registro': datetime.now(timezone.utc).isoformat(), 'estado': 'vencido', 'fecha_vencimiento': None}
     await db.socios.insert_one(socio_doc)
     socio_doc.pop('_id', None)
     return Socio(**socio_doc)
@@ -282,6 +286,9 @@ async def crear_socio(socio_data: SocioCreate, current_user: dict = Depends(get_
 @api_router.get("/socios", response_model=List[Socio])
 async def listar_socios(current_user: dict = Depends(get_current_user)):
     socios = await db.socios.find({}, {'_id': 0}).sort('fecha_registro', -1).to_list(1000)
+    for socio in socios:
+        socio.setdefault('apellido', '')
+        socio.setdefault('dni', '')
     return [Socio(**s) for s in socios]
 
 @api_router.get("/socios/{socio_id}", response_model=Socio)
@@ -289,6 +296,8 @@ async def obtener_socio(socio_id: str, current_user: dict = Depends(get_current_
     socio = await db.socios.find_one({'socio_id': socio_id}, {'_id': 0})
     if not socio:
         raise HTTPException(status_code=404, detail="Socio no encontrado")
+    socio.setdefault('apellido', '')
+    socio.setdefault('dni', '')
     return Socio(**socio)
 
 @api_router.put("/socios/{socio_id}", response_model=Socio)
@@ -421,11 +430,11 @@ async def exportar_socios_excel(current_user: dict = Depends(get_current_user)):
     ws1 = wb.active
     ws1.title = "Socios"
     ws1.row_dimensions[1].height = 20
-    enc1 = ["ID Socio", "Nombre", "Email", "Teléfono", "Dirección", "Estado", "Fecha Registro", "Vencimiento"]
+    enc1 = ["ID Socio", "Nombre", "Apellido", "DNI", "Email", "Teléfono", "Dirección", "Estado", "Fecha Registro", "Vencimiento"]
     ws1.append(enc1)
     _estilo_encabezado(ws1, 1, [chr(65 + i) for i in range(len(enc1))])
     for s in socios:
-        ws1.append([s.get('socio_id', ''), s.get('nombre', ''), s.get('email', '') or '', s.get('telefono', '') or '', s.get('direccion', '') or '', 'Activo' if s.get('estado') == 'activo' else 'Vencido', s.get('fecha_registro', '')[:10] if s.get('fecha_registro') else '', s.get('fecha_vencimiento', '')[:10] if s.get('fecha_vencimiento') else 'Sin pagos'])
+        ws1.append([s.get('socio_id', ''), s.get('nombre', ''), s.get('apellido', ''), s.get('dni', ''), s.get('email', '') or '', s.get('telefono', '') or '', s.get('direccion', '') or '', 'Activo' if s.get('estado') == 'activo' else 'Vencido', s.get('fecha_registro', '')[:10] if s.get('fecha_registro') else '', s.get('fecha_vencimiento', '')[:10] if s.get('fecha_vencimiento') else 'Sin pagos'])
     _autoajustar_columnas(ws1)
 
     # Hoja 2: Pagos
@@ -434,7 +443,7 @@ async def exportar_socios_excel(current_user: dict = Depends(get_current_user)):
     enc2 = ["ID Socio", "Nombre Socio", "Plan", "Monto", "Método Pago", "Fecha Pago", "Fecha Vencimiento"]
     ws2.append(enc2)
     _estilo_encabezado(ws2, 1, [chr(65 + i) for i in range(len(enc2))], color_hex="065F46")
-    socio_nombres = {s['socio_id']: s['nombre'] for s in socios}
+    socio_nombres = {s['socio_id']: f"{s['nombre']} {s['apellido']}" for s in socios}
     for p in pagos:
         ws2.append([p.get('socio_id', ''), socio_nombres.get(p['socio_id'], 'Desconocido'), p.get('tipo_plan', '').capitalize(), p.get('monto', 0), p.get('metodo_pago', ''), p.get('fecha_pago', '')[:10] if p.get('fecha_pago') else '', p.get('fecha_vencimiento', '')[:10] if p.get('fecha_vencimiento') else ''])
     _autoajustar_columnas(ws2)
@@ -443,7 +452,7 @@ async def exportar_socios_excel(current_user: dict = Depends(get_current_user)):
     ws3 = wb.create_sheet("Historial por Socio")
     fila = 1
     for s in socios:
-        ws3.cell(row=fila, column=1, value=f"{s['socio_id']} — {s['nombre']}").font = Font(bold=True, size=12)
+        ws3.cell(row=fila, column=1, value=f"{s['socio_id']} — {s['nombre']} {s['apellido']}").font = Font(bold=True, size=12)
         fila += 1
         cols_h = ["Plan", "Monto", "Método", "Fecha Pago", "Vencimiento"]
         for i, col in enumerate(cols_h, 1):

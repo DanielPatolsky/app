@@ -8,9 +8,11 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 function SocioModal({ socio, onClose }) {
   const [formData, setFormData] = useState({
     nombre: '',
+    apellido: '',
     email: '',
     telefono: '',
-    direccion: ''
+    direccion: '',
+    dni: ''
   });
   const [loading, setLoading] = useState(false);
 
@@ -18,9 +20,11 @@ function SocioModal({ socio, onClose }) {
     if (socio) {
       setFormData({
         nombre: socio.nombre || '',
+        apellido: socio.apellido || '',
         email: socio.email || '',
         telefono: socio.telefono || '',
-        direccion: socio.direccion || ''
+        direccion: socio.direccion || '',
+        dni: socio.dni || ''
       });
     }
   }, [socio]);
@@ -71,13 +75,27 @@ function SocioModal({ socio, onClose }) {
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Nombre completo *
+              Nombre *
             </label>
             <input
               type="text"
               data-testid="socio-nombre-input"
               value={formData.nombre}
               onChange={(e) => setFormData({...formData, nombre: e.target.value})}
+              className="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Apellido *
+            </label>
+            <input
+              type="text"
+              data-testid="socio-apellido-input"
+              value={formData.apellido}
+              onChange={(e) => setFormData({...formData, apellido: e.target.value})}
               className="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
               required
             />
@@ -119,6 +137,20 @@ function SocioModal({ socio, onClose }) {
               value={formData.direccion}
               onChange={(e) => setFormData({...formData, direccion: e.target.value})}
               className="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              DNI *
+            </label>
+            <input
+              type="text"
+              data-testid="socio-dni-input"
+              value={formData.dni}
+              onChange={(e) => setFormData({...formData, dni: e.target.value})}
+              className="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
+              required
             />
           </div>
 

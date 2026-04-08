@@ -39,8 +39,10 @@ function Socios() {
     let filtered = socios;
     if (searchTerm) {
       filtered = filtered.filter((s) =>
-        s.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.socio_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.apellido || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.dni || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.socio_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (s.email && s.email.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
@@ -142,7 +144,7 @@ function Socios() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
-              placeholder="Buscar por nombre, ID o email..."
+              placeholder="Buscar por nombre, apellido, DNI, ID o email..."
               data-testid="search-socios-input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -170,7 +172,7 @@ function Socios() {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-6 py-3">ID</th>
-                  <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-6 py-3">Nombre</th>
+                  <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-6 py-3">Nombre Completo</th>
                   <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-6 py-3">Contacto</th>
                   <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-6 py-3">Estado</th>
                   <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-6 py-3">Vencimiento</th>
@@ -181,7 +183,7 @@ function Socios() {
                 {filteredSocios.map((socio, index) => (
                   <tr key={socio.socio_id} className="hover:bg-slate-50 transition-colors" data-testid={`socio-row-${index}`}>
                     <td className="px-6 py-4 text-sm font-medium text-slate-900">{socio.socio_id}</td>
-                    <td className="px-6 py-4 text-sm text-slate-700">{socio.nombre}</td>
+                    <td className="px-6 py-4 text-sm text-slate-700">{(socio.nombre || '') + ' ' + (socio.apellido || '')}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {socio.email && <div>{socio.email}</div>}
                       {socio.telefono && <div className="text-slate-500">{socio.telefono}</div>}

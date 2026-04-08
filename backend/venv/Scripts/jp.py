@@ -1,4 +1,4 @@
-#!C:\Users\patoe\OneDrive\Escritorio\Proyecto alone\gym_app_actualizada\gym_project\backend\venv\Scripts\python.exe
+#!C:\Users\patoe\OneDrive\Escritorio\Proyecto alone\app\backend\venv\Scripts\python.exe
 
 import sys
 import json
