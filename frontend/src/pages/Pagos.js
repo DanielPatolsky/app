@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { DollarSign, Search } from 'lucide-react';
+import { DollarSign, Search, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -15,25 +15,17 @@ function Pagos() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [exportando, setExportando] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    filterPagos();
-  }, [pagos, searchTerm]);
+  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { filterPagos(); }, [pagos, searchTerm]);
 
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('token');
       const [pagosRes, sociosRes] = await Promise.all([
-        axios.get(`${BACKEND_URL}/api/pagos`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${BACKEND_URL}/api/socios`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        axios.get(`${BACKEND_URL}/api/pagos`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${BACKEND_URL}/api/socios`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       setPagos(pagosRes.data);
       setSocios(sociosRes.data);
@@ -46,7 +38,6 @@ function Pagos() {
 
   const filterPagos = () => {
     let filtered = pagos;
-
     if (searchTerm) {
       filtered = filtered.filter((p) => {
         const socio = socios.find((s) => s.socio_id === p.socio_id);
@@ -56,7 +47,6 @@ function Pagos() {
         );
       });
     }
-
     setFilteredPagos(filtered);
   };
 
@@ -68,6 +58,31 @@ function Pagos() {
   const handleModalClose = () => {
     setModalOpen(false);
     fetchData();
+  };
+
+  const handleExportar = async () => {
+    setExportando(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${BACKEND_URL}/api/exportar/pagos`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      const fecha = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      link.setAttribute('download', `gimnasio_pagos_${fecha}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Excel descargado correctamente');
+    } catch (error) {
+      toast.error('Error al exportar el Excel');
+    } finally {
+      setExportando(false);
+    }
   };
 
   if (loading) {
@@ -85,14 +100,24 @@ function Pagos() {
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Pagos</h1>
           <p className="text-slate-600 mt-1">Registra y gestiona los pagos de tus socios</p>
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          data-testid="register-pago-button"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-md shadow-sm font-medium flex items-center gap-2 transition-colors"
-        >
-          <DollarSign size={20} />
-          Registrar Pago
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportar}
+            disabled={exportando}
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-4 py-2.5 rounded-md shadow-sm font-medium flex items-center gap-2 transition-colors"
+          >
+            <Download size={18} />
+            {exportando ? 'Exportando...' : 'Exportar Excel'}
+          </button>
+          <button
+            onClick={() => setModalOpen(true)}
+            data-testid="register-pago-button"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-md shadow-sm font-medium flex items-center gap-2 transition-colors"
+          >
+            <DollarSign size={20} />
+            Registrar Pago
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -128,27 +153,17 @@ function Pagos() {
               <tbody className="divide-y divide-slate-200">
                 {filteredPagos.map((pago, index) => (
                   <tr key={pago.id} className="hover:bg-slate-50 transition-colors" data-testid={`pago-row-${index}`}>
-                    <td className="px-6 py-4 text-sm text-slate-700">
-                      {format(new Date(pago.fecha_pago), 'dd/MM/yyyy', { locale: es })}
-                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-700">{format(new Date(pago.fecha_pago), 'dd/MM/yyyy', { locale: es })}</td>
                     <td className="px-6 py-4 text-sm text-slate-900">
                       <div className="font-medium">{getSocioNombre(pago.socio_id)}</div>
                       <div className="text-slate-500 text-xs">{pago.socio_id}</div>
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <span className="inline-block px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium capitalize">
-                        {pago.tipo_plan}
-                      </span>
+                      <span className="inline-block px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium capitalize">{pago.tipo_plan}</span>
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-900">
-                      ${pago.monto.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {format(new Date(pago.fecha_vencimiento), 'dd/MM/yyyy', { locale: es })}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {pago.metodo_pago}
-                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900">${pago.monto.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{format(new Date(pago.fecha_vencimiento), 'dd/MM/yyyy', { locale: es })}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{pago.metodo_pago}</td>
                   </tr>
                 ))}
               </tbody>
@@ -161,12 +176,7 @@ function Pagos() {
         )}
       </div>
 
-      {modalOpen && (
-        <PagoModal
-          socios={socios}
-          onClose={handleModalClose}
-        />
-      )}
+      {modalOpen && <PagoModal socios={socios} onClose={handleModalClose} />}
     </div>
   );
 }

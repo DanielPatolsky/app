@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -16,14 +16,10 @@ function Socios() {
   const [filterEstado, setFilterEstado] = useState('todos');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSocio, setEditingSocio] = useState(null);
+  const [exportando, setExportando] = useState(false);
 
-  useEffect(() => {
-    fetchSocios();
-  }, []);
-
-  useEffect(() => {
-    filterSocios();
-  }, [socios, searchTerm, filterEstado]);
+  useEffect(() => { fetchSocios(); }, []);
+  useEffect(() => { filterSocios(); }, [socios, searchTerm, filterEstado]);
 
   const fetchSocios = async () => {
     try {
@@ -41,28 +37,21 @@ function Socios() {
 
   const filterSocios = () => {
     let filtered = socios;
-
     if (searchTerm) {
-      filtered = filtered.filter(
-        (s) =>
-          s.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          s.socio_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (s.email && s.email.toLowerCase().includes(searchTerm.toLowerCase()))
+      filtered = filtered.filter((s) =>
+        s.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.socio_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.email && s.email.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
-
     if (filterEstado !== 'todos') {
       filtered = filtered.filter((s) => s.estado === filterEstado);
     }
-
     setFilteredSocios(filtered);
   };
 
   const handleDelete = async (socioId) => {
-    if (!window.confirm('¿Estás seguro de eliminar este socio? Esta acción no se puede deshacer.')) {
-      return;
-    }
-
+    if (!window.confirm('¿Estás seguro de eliminar este socio? Esta acción no se puede deshacer.')) return;
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`${BACKEND_URL}/api/socios/${socioId}`, {
@@ -86,6 +75,31 @@ function Socios() {
     fetchSocios();
   };
 
+  const handleExportar = async () => {
+    setExportando(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${BACKEND_URL}/api/exportar/socios`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      const fecha = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      link.setAttribute('download', `gimnasio_socios_${fecha}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Excel descargado correctamente');
+    } catch (error) {
+      toast.error('Error al exportar el Excel');
+    } finally {
+      setExportando(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -101,14 +115,24 @@ function Socios() {
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Socios</h1>
           <p className="text-slate-600 mt-1">Gestiona los miembros de tu gimnasio</p>
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          data-testid="add-socio-button"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-md shadow-sm font-medium flex items-center gap-2 transition-colors"
-        >
-          <Plus size={20} />
-          Nuevo Socio
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportar}
+            disabled={exportando}
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-4 py-2.5 rounded-md shadow-sm font-medium flex items-center gap-2 transition-colors"
+          >
+            <Download size={18} />
+            {exportando ? 'Exportando...' : 'Exportar Excel'}
+          </button>
+          <button
+            onClick={() => setModalOpen(true)}
+            data-testid="add-socio-button"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-md shadow-sm font-medium flex items-center gap-2 transition-colors"
+          >
+            <Plus size={20} />
+            Nuevo Socio
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -163,38 +187,19 @@ function Socios() {
                       {socio.telefono && <div className="text-slate-500">{socio.telefono}</div>}
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <span
-                        className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                          socio.estado === 'activo'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                        data-testid={`socio-estado-${index}`}
-                      >
+                      <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${socio.estado === 'activo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`} data-testid={`socio-estado-${index}`}>
                         {socio.estado === 'activo' ? 'Activo' : 'Vencido'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
-                      {socio.fecha_vencimiento
-                        ? format(new Date(socio.fecha_vencimiento), 'dd/MM/yyyy', { locale: es })
-                        : 'Sin pagos'}
+                      {socio.fecha_vencimiento ? format(new Date(socio.fecha_vencimiento), 'dd/MM/yyyy', { locale: es }) : 'Sin pagos'}
                     </td>
                     <td className="px-6 py-4 text-sm text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(socio)}
-                          data-testid={`edit-socio-${index}`}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                          title="Editar"
-                        >
+                        <button onClick={() => handleEdit(socio)} data-testid={`edit-socio-${index}`} className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Editar">
                           <Pencil size={16} />
                         </button>
-                        <button
-                          onClick={() => handleDelete(socio.socio_id)}
-                          data-testid={`delete-socio-${index}`}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                          title="Eliminar"
-                        >
+                        <button onClick={() => handleDelete(socio.socio_id)} data-testid={`delete-socio-${index}`} className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Eliminar">
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -211,12 +216,7 @@ function Socios() {
         )}
       </div>
 
-      {modalOpen && (
-        <SocioModal
-          socio={editingSocio}
-          onClose={handleModalClose}
-        />
-      )}
+      {modalOpen && <SocioModal socio={editingSocio} onClose={handleModalClose} />}
     </div>
   );
 }
