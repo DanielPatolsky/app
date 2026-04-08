@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
 import bcrypt
-import io
+import urllib.parse
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -115,11 +115,18 @@ class DashboardStats(BaseModel):
     ingresos_mes: float
     proximos_vencimientos: List[dict]
 
-class AlertaResult(BaseModel):
-    enviadas: int
-    errores: int
-    sin_telefono: int
-    detalle: List[dict]
+class Alerta(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    socio_id: str
+    nombre: str
+    tipo: str  # 'vencido', 'proximo', 'inactivo'
+    dias_restantes: Optional[int] = None
+    fecha_vencimiento: Optional[str] = None
+    telefono: str
+    mensaje: str
+    whatsapp_link: str
+    fecha_alerta: str
 
 # ============ AUTH HELPERS ============
 
@@ -184,67 +191,81 @@ def enviar_whatsapp(telefono: str, mensaje: str) -> bool:
         return False
 
 async def ejecutar_alertas_diarias():
-    logger.info("Ejecutando alertas diarias de WhatsApp...")
+    logger.info("Generando alertas diarias...")
     now = datetime.now(timezone.utc)
     socios = await db.socios.find({}, {'_id': 0}).to_list(10000)
 
-    enviadas = errores = sin_telefono = 0
+    # Limpiar alertas anteriores
+    await db.alertas.delete_many({})
 
     for socio in socios:
-        if not socio.get('fecha_vencimiento'):
-            continue
-
-        fecha_venc = datetime.fromisoformat(socio['fecha_vencimiento'])
-        dias = (fecha_venc - now).days
         telefono = socio.get('telefono', '').strip()
-
-        if dias < 0:
-            mensaje = (
-                f"Hola {socio['nombre']} 👋\n"
-                f"Te recordamos que tu cuota en el gimnasio *venció* el {fecha_venc.strftime('%d/%m/%Y')}.\n"
-                f"¡Acercate a renovarla para seguir entrenando! 💪"
-            )
-        elif 0 <= dias <= 7:
-            if dias == 0:
-                aviso = "vence *hoy*"
-            elif dias == 1:
-                aviso = "vence *mañana*"
-            else:
-                aviso = f"vence en *{dias} días*"
-            mensaje = (
-                f"Hola {socio['nombre']} 👋\n"
-                f"Te avisamos que tu cuota del gimnasio {aviso} ({fecha_venc.strftime('%d/%m/%Y')}).\n"
-                f"¡No te olvides de renovarla! 💪"
-            )
-        else:
-            continue
-
-        alerta_id = str(uuid.uuid4())
-        await db.alertas.insert_one({
-            'id': alerta_id,
-            'socio_id': socio['socio_id'],
-            'nombre': socio['nombre'],
-            'tipo': 'vencido' if dias < 0 else 'proximo',
-            'dias_restantes': dias,
-            'fecha_vencimiento': socio['fecha_vencimiento'],
-            'telefono': telefono,
-            'mensaje': mensaje,
-            'enviado': False,
-            'fecha_alerta': now.isoformat()
-        })
-
         if not telefono:
-            sin_telefono += 1
             continue
 
-        ok = enviar_whatsapp(telefono, mensaje)
-        if ok:
-            enviadas += 1
-            await db.alertas.update_one({'id': alerta_id}, {'$set': {'enviado': True}})
-        else:
-            errores += 1
+        alertas_socio = []
 
-    logger.info(f"Alertas: {enviadas} enviadas, {errores} errores, {sin_telefono} sin teléfono")
+        # Vencimientos
+        if socio.get('fecha_vencimiento'):
+            fecha_venc = datetime.fromisoformat(socio['fecha_vencimiento'])
+            dias = (fecha_venc - now).days
+
+            if dias < 0:
+                mensaje = f"Hola {socio['nombre']} 👋\nTe recordamos que tu cuota en el gimnasio *venció* el {fecha_venc.strftime('%d/%m/%Y')}.\n¡Acercate a renovarla para seguir entrenando! 💪"
+                alertas_socio.append({
+                    'tipo': 'vencido',
+                    'dias_restantes': dias,
+                    'mensaje': mensaje,
+                    'prioridad': 1  # Alta
+                })
+            elif 0 <= dias <= 7:
+                if dias == 0:
+                    aviso = "vence *hoy*"
+                elif dias == 1:
+                    aviso = "vence *mañana*"
+                else:
+                    aviso = f"vence en *{dias} días*"
+                mensaje = f"Hola {socio['nombre']} 👋\nTe avisamos que tu cuota del gimnasio {aviso} ({fecha_venc.strftime('%d/%m/%Y')}).\n¡No te olvides de renovarla! 💪"
+                alertas_socio.append({
+                    'tipo': 'proximo',
+                    'dias_restantes': dias,
+                    'mensaje': mensaje,
+                    'prioridad': 2 if dias <= 1 else 3
+                })
+
+        # Inactividad: si último pago hace más de 30 días
+        ultimo_pago = await db.pagos.find_one({'socio_id': socio['socio_id']}, {'_id': 0}, sort=[('fecha_pago', -1)])
+        if ultimo_pago:
+            fecha_ult_pago = datetime.fromisoformat(ultimo_pago['fecha_pago'])
+            dias_sin_pago = (now - fecha_ult_pago).days
+            if dias_sin_pago > 30:
+                mensaje = f"Hola {socio['nombre']} 👋\nHace {dias_sin_pago} días que no nos visitas al gimnasio.\n¡Te esperamos de vuelta! 💪"
+                alertas_socio.append({
+                    'tipo': 'inactivo',
+                    'dias_restantes': None,
+                    'mensaje': mensaje,
+                    'prioridad': 4
+                })
+
+        # Guardar alertas para este socio
+        for alerta in alertas_socio:
+            whatsapp_link = f"https://wa.me/{telefono.replace('+', '')}?text={urllib.parse.quote(mensaje)}"
+            alerta_doc = {
+                'id': str(uuid.uuid4()),
+                'socio_id': socio['socio_id'],
+                'nombre': socio['nombre'],
+                'tipo': alerta['tipo'],
+                'dias_restantes': alerta.get('dias_restantes'),
+                'fecha_vencimiento': socio.get('fecha_vencimiento'),
+                'telefono': telefono,
+                'mensaje': alerta['mensaje'],
+                'whatsapp_link': whatsapp_link,
+                'fecha_alerta': now.isoformat(),
+                'prioridad': alerta['prioridad']
+            }
+            await db.alertas.insert_one(alerta_doc)
+
+    logger.info("Alertas generadas exitosamente")
 
 # ============ AUTH ROUTES ============
 
@@ -368,37 +389,16 @@ async def obtener_stats(current_user: dict = Depends(get_current_user)):
 
 # ============ ALERTAS ROUTES ============
 
-@api_router.get("/alertas/estado")
-async def estado_alertas(current_user: dict = Depends(get_current_user)):
-    now = datetime.now(timezone.utc)
-    socios = await db.socios.find({}, {'_id': 0}).to_list(10000)
-    proximos, vencidos = [], []
-    for socio in socios:
-        if not socio.get('fecha_vencimiento'):
-            continue
-        fecha_venc = datetime.fromisoformat(socio['fecha_vencimiento'])
-        dias = (fecha_venc - now).days
-        entry = {'socio_id': socio['socio_id'], 'nombre': socio['nombre'], 'telefono': socio.get('telefono', '') or '', 'fecha_vencimiento': socio['fecha_vencimiento'], 'dias_restantes': dias}
-        if dias < 0:
-            vencidos.append(entry)
-        elif dias <= 7:
-            proximos.append(entry)
-    return {
-        'proximos_a_vencer': sorted(proximos, key=lambda x: x['dias_restantes']),
-        'vencidos': sorted(vencidos, key=lambda x: x['dias_restantes']),
-        'twilio_configurado': bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)
-    }
+@api_router.get("/alertas", response_model=List[Alerta])
+async def obtener_alertas(current_user: dict = Depends(get_current_user)):
+    alertas = await db.alertas.find({}, {'_id': 0}).sort('prioridad', 1).to_list(1000)  # 1 = alta prioridad primero
+    return [Alerta(**a) for a in alertas]
 
-@api_router.post("/alertas/enviar-ahora", response_model=AlertaResult)
-async def enviar_alertas_ahora(current_user: dict = Depends(get_current_user)):
+@api_router.post("/alertas/generar")
+async def generar_alertas(current_user: dict = Depends(get_current_user)):
     await ejecutar_alertas_diarias()
-    now = datetime.now(timezone.utc)
-    hace_5min = now - timedelta(minutes=5)
-    alertas = await db.alertas.find({'fecha_alerta': {'$gte': hace_5min.isoformat()}}, {'_id': 0}).to_list(1000)
-    enviadas = sum(1 for a in alertas if a.get('enviado'))
-    sin_tel = sum(1 for a in alertas if not a.get('telefono'))
-    errores = max(len(alertas) - enviadas - sin_tel, 0)
-    return AlertaResult(enviadas=enviadas, errores=errores, sin_telefono=sin_tel, detalle=alertas)
+    alertas = await db.alertas.find({}, {'_id': 0}).to_list(1000)
+    return {"alertas_generadas": len(alertas)}
 
 # ============ EXPORTACION EXCEL ============
 
