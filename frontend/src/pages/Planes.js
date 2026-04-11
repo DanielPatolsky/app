@@ -11,6 +11,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 function Planes() {
   const [planes, setPlanes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
@@ -45,43 +46,37 @@ function Planes() {
       return;
     }
 
+    setSaving(true);
     try {
       const token = localStorage.getItem('token');
+      const payload = {
+        nombre: formData.nombre,
+        dias: parseInt(formData.dias, 10),
+        precio: parseFloat(formData.precio)
+      };
+
       if (editingId) {
-        await axios.put(`${BACKEND_URL}/api/planes/${editingId}`, {
-          nombre: formData.nombre,
-          dias: parseInt(formData.dias),
-          precio: parseFloat(formData.precio)
-        }, {
+        await axios.put(`${BACKEND_URL}/api/planes/${editingId}`, payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
         toast.success('Plan actualizado');
-        setPlanes((prev) => prev.map((plan) =>
-          plan.id === editingId
-            ? { ...plan, nombre: formData.nombre, dias: parseInt(formData.dias), precio: parseFloat(formData.precio) }
-            : plan
-        ));
       } else {
-        const response = await axios.post(`${BACKEND_URL}/api/planes`, {
-          nombre: formData.nombre,
-          dias: parseInt(formData.dias),
-          precio: parseFloat(formData.precio)
-        }, {
+        await axios.post(`${BACKEND_URL}/api/planes`, payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
         toast.success('Plan creado');
-        setPlanes((prev) => [...prev, response.data]);
       }
 
       setFormData({ nombre: '', dias: '', precio: '' });
       setEditingId(null);
       setShowForm(false);
-      fetchPlanes().catch((err) => {
-        console.error('Error al actualizar la lista de planes', err);
-      });
+      await fetchPlanes();
     } catch (error) {
       console.error('Error guardar plan', error);
-      toast.error(error.response?.data?.detail || 'Error al guardar plan');
+      const message = error.response?.data?.detail || error.message || 'Error al guardar plan';
+      toast.error(message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -135,7 +130,14 @@ function Planes() {
           <div className="flex items-center justify-between">
             <CardTitle>Configuración de Planes</CardTitle>
             {!showForm && (
-              <Button onClick={() => setShowForm(true)} size="sm">
+              <Button
+                onClick={() => {
+                  setShowForm(true);
+                  setEditingId(null);
+                  setFormData({ nombre: '', dias: '', precio: '' });
+                }}
+                size="sm"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Nuevo Plan
               </Button>
@@ -177,7 +179,7 @@ function Planes() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" size="sm">
+                  <Button type="submit" size="sm" disabled={saving}>
                     Guardar
                   </Button>
                   <Button type="button" variant="outline" size="sm" onClick={handleCancel}>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, UserCheck, UserX, DollarSign, Calendar } from 'lucide-react';
-import { BarChart, Bar, CartesianGrid, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { Users, UserCheck, UserX, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -50,7 +49,6 @@ function Dashboard() {
     { title: 'Total Socios', value: stats?.total_socios || 0, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', testid: 'metric-total-socios' },
     { title: 'Socios Activos', value: stats?.socios_activos || 0, icon: UserCheck, color: 'text-green-600', bg: 'bg-green-50', testid: 'metric-socios-activos' },
     { title: 'Socios Vencidos', value: stats?.socios_vencidos || 0, icon: UserX, color: 'text-red-600', bg: 'bg-red-50', testid: 'metric-socios-vencidos' },
-    { title: `Ingresos ${monthNames[selectedMonth - 1]} ${selectedYear}`, value: `$${stats?.ingresos_mes?.toFixed(2) || '0.00'}`, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', testid: 'metric-ingresos-mes' },
   ];
 
   return (
@@ -76,72 +74,6 @@ function Dashboard() {
             </div>
           );
         })}
-      </div>
-
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">Ingresos por día</h2>
-            <p className="text-sm text-slate-500">Total ingresado por día del mes seleccionado</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-700 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
-            >
-              {monthNames.map((name, index) => (
-                <option key={name} value={index + 1}>{name}</option>
-              ))}
-            </select>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-700 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats?.ingresos_por_dia || []} margin={{ top: 10, right: 20, left: 0, bottom: 30 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis
-                dataKey="dia"
-                tick={{ fill: '#64748b' }}
-                tickLine={false}
-                axisLine={false}
-                interval={0}
-                label={{ value: 'Día del mes', position: 'insideBottom', dy: 18, fill: '#475569' }}
-              />
-              <Tooltip formatter={(value, name) => [typeof value === 'number' ? `$${value.toFixed(2)}` : value, name]} labelFormatter={(label) => `Día ${label}`} />
-              <Bar dataKey="ingresos" fill="#22c55e" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="mt-6 overflow-x-auto">
-          <table className="min-w-full text-left text-sm text-slate-700">
-            <thead className="border-b border-slate-200">
-              <tr>
-                <th className="px-4 py-3">Día</th>
-                <th className="px-4 py-3">Ingresos</th>
-                <th className="px-4 py-3">Pagos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats?.ingresos_por_dia?.map((item) => (
-                <tr key={item.dia} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-900">{item.dia}</td>
-                  <td className="px-4 py-3">${item.ingresos.toFixed(2)}</td>
-                  <td className="px-4 py-3">{item.pagos}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

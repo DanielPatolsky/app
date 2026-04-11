@@ -646,6 +646,7 @@ async def crear_plan(plan: PlanCreate, current_user: dict = Depends(get_current_
         "precio": plan.precio
     }
     await db.planes.insert_one(plan_doc)
+    plan_doc.pop('_id', None)
     return plan_doc
 
 @api_router.put("/planes/{plan_id}")

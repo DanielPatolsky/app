@@ -10,6 +10,7 @@ function Layout({ user, onLogout }) {
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Socios', path: '/socios', icon: Users },
     { name: 'Pagos', path: '/pagos', icon: DollarSign },
+    { name: 'Ingresos', path: '/ingresos', icon: DollarSign },
     { name: 'Historial Alertas', path: '/historial-alertas', icon: History },
     { name: 'Planes', path: '/planes', icon: Settings },
   ];
