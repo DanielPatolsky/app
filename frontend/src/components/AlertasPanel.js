@@ -47,6 +47,20 @@ function AlertasPanel() {
     }
   };
 
+  const handleEnviarAlerta = async (alertaId, whatsappLink) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${BACKEND_URL}/api/alertas/${alertaId}/enviar`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      window.open(whatsappLink, '_blank', 'noopener,noreferrer');
+      toast.success('Alerta marcada como enviada');
+      await fetchAlertas(); // Recargar alertas
+    } catch (error) {
+      toast.error('Error al enviar alerta');
+    }
+  };
+
   const getIcon = (tipo) => {
     switch (tipo) {
       case 'vencido': return <AlertTriangle className="h-4 w-4 text-red-500" />;
@@ -127,18 +141,11 @@ function AlertasPanel() {
                   <Button
                     size="sm"
                     variant="outline"
-                    asChild
+                    onClick={() => handleEnviarAlerta(alerta.id, alerta.whatsapp_link)}
+                    className="flex items-center gap-1"
                   >
-                    <a
-                      href={alerta.whatsapp_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1"
-                    >
-                      <MessageCircle className="h-3 w-3" />
-                      WhatsApp
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
+                    <MessageCircle className="h-3 w-3" />
+                    Enviar WhatsApp
                   </Button>
                 </div>
                 <p className="text-sm text-slate-600 whitespace-pre-line">

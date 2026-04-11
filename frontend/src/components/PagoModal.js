@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -6,25 +6,57 @@ import { toast } from 'sonner';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 function PagoModal({ socios, onClose }) {
+  const sortedSocios = [...socios].sort((a, b) => a.socio_id.localeCompare(b.socio_id));
   const [formData, setFormData] = useState({
     socio_id: '',
     monto: '',
-    tipo_plan: 'mensual',
+    tipo_plan: '',
     metodo_pago: 'Efectivo'
   });
+  const [planes, setPlanes] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchPlanes();
+  }, []);
+
+  const fetchPlanes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${BACKEND_URL}/api/planes`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setPlanes(response.data);
+    } catch (error) {
+      console.error('Error al cargar planes');
+    }
+  };
+
+  const handlePlanChange = (e) => {
+    const planId = e.target.value;
+    setFormData({ ...formData, tipo_plan: planId });
+    
+    // Auto-completar el precio
+    const selectedPlan = planes.find(p => p.id === planId);
+    if (selectedPlan) {
+      setFormData(prev => ({ ...prev, monto: selectedPlan.precio.toString() }));
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      const selectedPlan = planes.find(p => p.id === formData.tipo_plan);
       const token = localStorage.getItem('token');
       await axios.post(
         `${BACKEND_URL}/api/pagos`,
         {
-          ...formData,
-          monto: parseFloat(formData.monto)
+          socio_id: formData.socio_id,
+          monto: parseFloat(formData.monto),
+          tipo_plan: selectedPlan ? selectedPlan.nombre.toLowerCase() : formData.tipo_plan,
+          metodo_pago: formData.metodo_pago
         },
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -66,7 +98,7 @@ function PagoModal({ socios, onClose }) {
               required
             >
               <option value="">Seleccionar socio</option>
-              {socios.map((socio) => (
+              {sortedSocios.map((socio) => (
                 <option key={socio.socio_id} value={socio.socio_id}>
                   {socio.socio_id} - {socio.nombre}
                 </option>
@@ -80,15 +112,17 @@ function PagoModal({ socios, onClose }) {
             </label>
             <select
               value={formData.tipo_plan}
-              onChange={(e) => setFormData({...formData, tipo_plan: e.target.value})}
+              onChange={handlePlanChange}
               data-testid="pago-tipo-plan-select"
               className="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
               required
             >
-              <option value="mensual">Mensual (30 días)</option>
-              <option value="trimestral">Trimestral (90 días)</option>
-              <option value="semestral">Semestral (180 días)</option>
-              <option value="anual">Anual (365 días)</option>
+              <option value="">Elegir plan</option>
+              {planes.map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.nombre} ({plan.dias} días) - ${plan.precio.toFixed(2)}
+                </option>
+              ))}
             </select>
           </div>
 

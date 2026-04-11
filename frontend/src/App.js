@@ -4,6 +4,8 @@ import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import Socios from './pages/Socios';
 import Pagos from './pages/Pagos';
+import HistorialAlertas from './pages/HistorialAlertas';
+import Planes from './pages/Planes';
 import Layout from './components/Layout';
 import { Toaster } from './components/ui/sonner';
 import './App.css';
@@ -59,6 +61,8 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="socios" element={<Socios />} />
             <Route path="pagos" element={<Pagos />} />
+            <Route path="historial-alertas" element={<HistorialAlertas />} />
+            <Route path="planes" element={<Planes />} />
           </Route>
         </Routes>
       </BrowserRouter>

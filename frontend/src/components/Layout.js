@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, DollarSign, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, DollarSign, LogOut, Menu, X, History, Settings } from 'lucide-react';
 
 function Layout({ user, onLogout }) {
   const location = useLocation();
@@ -10,6 +10,8 @@ function Layout({ user, onLogout }) {
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Socios', path: '/socios', icon: Users },
     { name: 'Pagos', path: '/pagos', icon: DollarSign },
+    { name: 'Historial Alertas', path: '/historial-alertas', icon: History },
+    { name: 'Planes', path: '/planes', icon: Settings },
   ];
 
   const isActive = (path) => {
@@ -73,19 +75,18 @@ function Layout({ user, onLogout }) {
                   </Link>
                 );
               })}
-            </nav>
 
-            {/* Logout */}
-            <div className="p-4 border-t border-slate-200">
-              <button
-                onClick={onLogout}
-                data-testid="logout-button"
-                className="flex items-center gap-3 px-4 py-2.5 rounded-md text-red-600 hover:bg-red-50 transition-colors w-full"
-              >
-                <LogOut size={20} />
-                <span>Cerrar sesión</span>
-              </button>
-            </div>
+              <div className="pt-4 border-t border-slate-200">
+                <button
+                  onClick={onLogout}
+                  data-testid="logout-button"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-md text-red-600 hover:bg-red-50 transition-colors w-full"
+                >
+                  <LogOut size={20} />
+                  <span>Cerrar sesión</span>
+                </button>
+              </div>
+            </nav>
           </div>
         </aside>
 
