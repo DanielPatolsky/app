@@ -7,6 +7,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 function SocioModal({ socio, onClose }) {
   const [formData, setFormData] = useState({
+    socio_id: '',
     nombre: '',
     apellido: '',
     email: '',
@@ -19,6 +20,7 @@ function SocioModal({ socio, onClose }) {
   useEffect(() => {
     if (socio) {
       setFormData({
+        socio_id: socio.socio_id || '',
         nombre: socio.nombre || '',
         apellido: socio.apellido || '',
         email: socio.email || '',
@@ -73,6 +75,21 @@ function SocioModal({ socio, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {socio && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Número de socio
+              </label>
+              <input
+                type="text"
+                data-testid="socio-id-input"
+                value={formData.socio_id}
+                onChange={(e) => setFormData({...formData, socio_id: e.target.value})}
+                className="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
+                required
+              />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Nombre *

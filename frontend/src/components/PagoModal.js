@@ -13,6 +13,8 @@ function PagoModal({ socios, onClose }) {
     tipo_plan: '',
     metodo_pago: 'Efectivo'
   });
+  const [socioQuery, setSocioQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [planes, setPlanes] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -43,17 +45,44 @@ function PagoModal({ socios, onClose }) {
     }
   };
 
+  const filteredSocios = sortedSocios.filter((socio) =>
+    `${socio.socio_id} - ${socio.nombre}`.toLowerCase().includes(socioQuery.toLowerCase())
+  );
+
+  const selectSocio = (socio) => {
+    setFormData(prev => ({ ...prev, socio_id: socio.socio_id }));
+    setSocioQuery(`${socio.socio_id} - ${socio.nombre}`);
+    setShowSuggestions(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      let socioId = formData.socio_id;
+      if (!socioId) {
+        const match = sortedSocios.find((socio) =>
+          socio.socio_id.toLowerCase() === socioQuery.trim().toLowerCase() ||
+          `${socio.socio_id} - ${socio.nombre}`.toLowerCase() === socioQuery.trim().toLowerCase()
+        );
+        if (match) {
+          socioId = match.socio_id;
+        }
+      }
+
+      if (!socioId) {
+        toast.error('Seleccioná un socio válido');
+        setLoading(false);
+        return;
+      }
+
       const selectedPlan = planes.find(p => p.id === formData.tipo_plan);
       const token = localStorage.getItem('token');
       await axios.post(
         `${BACKEND_URL}/api/pagos`,
         {
-          socio_id: formData.socio_id,
+          socio_id: socioId,
           monto: parseFloat(formData.monto),
           tipo_plan: selectedPlan ? selectedPlan.nombre.toLowerCase() : formData.tipo_plan,
           metodo_pago: formData.metodo_pago
@@ -86,24 +115,39 @@ function PagoModal({ socios, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Socio *
             </label>
-            <select
-              value={formData.socio_id}
-              onChange={(e) => setFormData({...formData, socio_id: e.target.value})}
-              data-testid="pago-socio-select"
+            <input
+              type="text"
+              value={socioQuery}
+              onChange={(e) => {
+                setSocioQuery(e.target.value);
+                setFormData({...formData, socio_id: ''});
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 100)}
+              data-testid="pago-socio-input"
               className="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
+              placeholder="Escribí el nombre o ID del socio"
               required
-            >
-              <option value="">Seleccionar socio</option>
-              {sortedSocios.map((socio) => (
-                <option key={socio.socio_id} value={socio.socio_id}>
-                  {socio.socio_id} - {socio.nombre}
-                </option>
-              ))}
-            </select>
+            />
+            {showSuggestions && socioQuery && filteredSocios.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                {filteredSocios.map((socio) => (
+                  <button
+                    type="button"
+                    key={socio.socio_id}
+                    onMouseDown={() => selectSocio(socio)}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-100"
+                  >
+                    {socio.socio_id} - {socio.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

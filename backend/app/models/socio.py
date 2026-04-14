@@ -10,6 +10,16 @@ class SocioCreate(BaseModel):
     direccion: Optional[str] = None
     dni: str
 
+class SocioUpdate(BaseModel):
+    """Modelo para actualizar un socio"""
+    socio_id: Optional[str] = None
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    dni: Optional[str] = None
+
 class Socio(BaseModel):
     """Modelo de respuesta de socio"""
     model_config = ConfigDict(extra="ignore")

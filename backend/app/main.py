@@ -18,7 +18,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 # Importar módulos refactorizados
 from app.core.security import get_current_user, create_token, db
 from app.models.user import UserRegister, UserLogin, User, TokenResponse
-from app.models.socio import SocioCreate, Socio
+from app.models.socio import SocioCreate, SocioUpdate, Socio
 from app.models.pago import PagoCreate, Pago
 from app.models.dashboard import DashboardStats, IngresoPorDia, Alerta, AlertaEnviada, ConfigMensaje
 from app.models.plan import Plan, PlanCreate, PlanUpdate
@@ -188,11 +188,31 @@ async def obtener_socio(socio_id: str, current_user: dict = Depends(get_current_
     return Socio(**socio)
 
 @api_router.put("/socios/{socio_id}", response_model=Socio)
-async def actualizar_socio(socio_id: str, socio_data: SocioCreate, current_user: dict = Depends(get_current_user)):
+async def actualizar_socio(socio_id: str, socio_data: SocioUpdate, current_user: dict = Depends(get_current_user)):
     """Actualizar datos de un socio"""
-    result = await db.socios.update_one({'socio_id': socio_id}, {'$set': socio_data.model_dump()})
+    update_data = socio_data.model_dump(exclude_none=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
+
+    new_socio_id = update_data.get('socio_id')
+    if new_socio_id == '':
+        update_data.pop('socio_id', None)
+
+    if new_socio_id and new_socio_id != socio_id:
+        existing = await db.socios.find_one({'socio_id': new_socio_id}, {'_id': 0})
+        if existing:
+            raise HTTPException(status_code=400, detail="Ya existe un socio con ese ID")
+
+    result = await db.socios.update_one({'socio_id': socio_id}, {'$set': update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Socio no encontrado")
+
+    if new_socio_id and new_socio_id != socio_id:
+        await db.pagos.update_many({'socio_id': socio_id}, {'$set': {'socio_id': new_socio_id}})
+        await db.alertas.update_many({'socio_id': socio_id}, {'$set': {'socio_id': new_socio_id}})
+        await db.alertas_enviadas.update_many({'socio_id': socio_id}, {'$set': {'socio_id': new_socio_id}})
+        socio_id = new_socio_id
+
     socio = await db.socios.find_one({'socio_id': socio_id}, {'_id': 0})
     return Socio(**socio)
 
@@ -364,6 +384,52 @@ async def obtener_alertas_enviadas(current_user: dict = Depends(get_current_user
     ]
     historial = await db.alertas_enviadas.aggregate(pipeline).to_list(1000)
     return historial
+
+@api_router.post("/alertas/enviadas/{enviada_id}/reenviar")
+async def reenviar_alerta_enviada(enviada_id: str, current_user: dict = Depends(get_current_user)):
+    """Generar link de reenvío para una alerta enviada"""
+    enviada = await db.alertas_enviadas.find_one({'id': enviada_id}, {'_id': 0})
+    if not enviada:
+        raise HTTPException(status_code=404, detail="Alerta enviada no encontrada")
+
+    socio = await db.socios.find_one({'socio_id': enviada['socio_id']}, {'_id': 0})
+    if not socio:
+        raise HTTPException(status_code=404, detail="Socio no encontrado")
+
+    telefono = str(socio.get('telefono', '')).strip()
+    if not telefono:
+        raise HTTPException(status_code=400, detail="El socio no tiene teléfono configurado")
+
+    config = await db.config_mensajes.find_one({'tipo': enviada['tipo']}, {'_id': 0})
+    if config and config.get('mensaje'):
+        mensaje = config['mensaje']
+    else:
+        defaults = {
+            'vencido': "Hola {nombre} 👋\nTe recordamos que tu cuota en el gimnasio *venció* el {fecha}.\n¡Acercate a renovarla para seguir entrenando! 💪",
+            'proximo': "Hola {nombre} 👋\nTe avisamos que tu cuota del gimnasio vence en *{dias} días* ({fecha}).\n¡No te olvides de renovarla! 💪",
+            'inactivo': "Hola {nombre} 👋\nHace {dias} días que no nos visitas al gimnasio.\n¡Te esperamos de vuelta! 💪"
+        }
+        mensaje = defaults.get(enviada['tipo'], "Hola {nombre} 👋\nEste es un recordatorio del gimnasio.")
+
+    fecha = socio.get('fecha_vencimiento', '')
+    dias = None
+    if fecha and enviada['tipo'] in ['vencido', 'proximo']:
+        try:
+            fecha_venc = parse_iso_datetime(fecha)
+            dias = (fecha_venc - datetime.now(timezone.utc)).days
+        except Exception:
+            dias = None
+
+    mensaje = mensaje.replace('{nombre}', socio.get('nombre', ''))
+    mensaje = mensaje.replace('{fecha}', fecha[:10] if fecha else '')
+    mensaje = mensaje.replace('{dias}', str(dias) if dias is not None else '')
+
+    telefono_normalizado = telefono
+    if telefono_normalizado.startswith('+'):
+        telefono_normalizado = telefono_normalizado[1:]
+
+    whatsapp_link = f"https://wa.me/{telefono_normalizado}?text={urllib.parse.quote(mensaje)}"
+    return {'whatsapp_link': whatsapp_link}
 
 @api_router.post("/alertas/{alerta_id}/enviar")
 async def enviar_alerta(alerta_id: str, current_user: dict = Depends(get_current_user)):
