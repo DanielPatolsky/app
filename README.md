@@ -8,10 +8,9 @@ Este repositorio contiene una aplicación full-stack para gestionar un gimnasio 
 - Registro y administración de socios
 - Gestión de pagos y cálculo automático de vencimientos
 - Dashboard de estadísticas de ingresos y estado de socios
-- Generación y envío de alertas para socios con cuotas vencidas, próximas a vencer o inactivos
+- Generación de alertas para socios con cuotas vencidas, próximas a vencer o inactivos
 - Administración de planes de suscripción
 - Exportación de listas de socios y pagos a Excel
-- Integración opcional con WhatsApp/Twilio para reenvío de alertas
 
 ## Estructura del proyecto
 
@@ -33,7 +32,7 @@ Este repositorio contiene una aplicación full-stack para gestionar un gimnasio 
       - `auth.py` — rutas de autenticación (GET /auth/me, POST /auth/register, POST /auth/login)
     - `utils/` — funciones auxiliares y utilidades
       - `helpers.py` — funciones reutilizables (calcular_fecha_vencimiento, get_next_sequence, etc.)
-      - `notifications.py` — envío de notificaciones por WhatsApp
+      - `notifications.py` — utilidades de notificación
   - `requirements.txt` — dependencias Python
   - `agregar_datos_prueba.py` — script para insertar datos de prueba
   - `seed_historical_data.py` — script para semilla de datos históricos
@@ -65,7 +64,7 @@ Este repositorio contiene una aplicación full-stack para gestionar un gimnasio 
 - Bcrypt para hashing de contraseñas
 - APScheduler para tareas programadas
 - openpyxl para exportar Excel
-- Twilio opcional para servicios de WhatsApp
+- Funciones de notificación internas sin integración externa de WhatsApp
 
 ### Frontend
 
@@ -112,14 +111,7 @@ JWT_SECRET=una_clave_segura
 CORS_ORIGINS=http://localhost:3000
 ```
 
-5. Variables opcionales de Twilio (solo si usa integración de WhatsApp):
-
-```env
-TWILIO_ACCOUNT_SID=...
-TWILIO_AUTH_TOKEN=...
-TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
-```
-
+5. 
 ## Ejecutar el backend
 
 Desde `backend/`:

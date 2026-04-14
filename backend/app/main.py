@@ -27,7 +27,6 @@ from app.utils.helpers import (
     calcular_fecha_vencimiento, parse_iso_datetime, get_next_sequence,
     initialize_socio_counter, actualizar_estado_socio
 )
-from app.utils.notifications import enviar_whatsapp
 
 # Configuración
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

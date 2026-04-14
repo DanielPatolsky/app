@@ -115,8 +115,12 @@ def generar_socios_y_pagos(planes):
     historial = []
 
     for index in range(1, CLIENTES + 1):
-        nombre = random.choice(FIRST_NAMES)
-        apellido = random.choice(LAST_NAMES)
+        if index == 221:
+            nombre = 'Pablo'
+            apellido = 'Fernandez'
+        else:
+            nombre = random.choice(FIRST_NAMES)
+            apellido = random.choice(LAST_NAMES)
         socio_id = f'GYM-{index:04d}'
         email = build_email(nombre, apellido, index)
         telefono = random_phone()
@@ -164,6 +168,14 @@ def generar_socios_y_pagos(planes):
             estado_actual = 'activo'
 
         ultimo_venc = pagos[-1]['fecha_vencimiento'] if pagos else None
+
+        # Special case for Pablo Fernandez (ID 0221)
+        if index == 221:
+            fecha_venc_2_dias = now + timedelta(days=2)
+            if pagos:
+                pagos[-1]['fecha_vencimiento'] = iso(fecha_venc_2_dias)
+            ultimo_venc = iso(fecha_venc_2_dias)
+            estado_actual = 'activo'
 
         socio_doc = {
             'id': str(uuid.uuid4()),
