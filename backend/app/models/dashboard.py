@@ -14,10 +14,18 @@ class DashboardStats(BaseModel):
     socios_activos: int
     socios_vencidos: int
     ingresos_mes: float
+    costos_mes: int
     mes: int
     anio: int
     ingresos_por_dia: List[IngresoPorDia]
     proximos_vencimientos: List[dict]
+
+class CostosMes(BaseModel):
+    """Costo mensual para un mes y año específicos"""
+    mes: int
+    anio: int
+    costos_mes: int
+    sumar: bool = True
 
 class Alerta(BaseModel):
     """Modelo de alerta para socios"""

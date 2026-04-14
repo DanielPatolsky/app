@@ -20,7 +20,7 @@ from app.core.security import get_current_user, create_token, db
 from app.models.user import UserRegister, UserLogin, User, TokenResponse
 from app.models.socio import SocioCreate, SocioUpdate, Socio
 from app.models.pago import PagoCreate, Pago
-from app.models.dashboard import DashboardStats, IngresoPorDia, Alerta, AlertaEnviada, ConfigMensaje
+from app.models.dashboard import DashboardStats, IngresoPorDia, CostosMes, Alerta, AlertaEnviada, ConfigMensaje
 from app.models.plan import Plan, PlanCreate, PlanUpdate
 from app.services.auth_service import register_user, login_user
 from app.utils.helpers import (
@@ -297,6 +297,9 @@ async def obtener_stats(
     
     ingresos_mes = sum(p['monto'] for p in pagos_mes)
 
+    costos_doc = await db.custos.find_one({'mes': month, 'anio': year}, {'_id': 0})
+    costos_mes = int(costos_doc.get('costos_mes', 0)) if costos_doc else 0
+
     ingresos_por_dia_dict = {}
     for pago in pagos_mes:
         try:
@@ -338,12 +341,48 @@ async def obtener_stats(
         socios_activos=socios_activos,
         socios_vencidos=socios_vencidos,
         ingresos_mes=ingresos_mes,
+        costos_mes=costos_mes,
         mes=month,
         anio=year,
         ingresos_por_dia=ingresos_por_dia,
         proximos_vencimientos=proximos[:10]
     )
 
+@api_router.post("/dashboard/costos")
+async def guardar_costos_mes(costos: CostosMes, current_user: dict = Depends(get_current_user)):
+    """Guardar o actualizar los costos de un mes"""
+    existing = await db.custos.find_one({'mes': costos.mes, 'anio': costos.anio}, {'_id': 0})
+    current_total = int(existing.get('costos_mes', 0)) if existing else 0
+    new_total = current_total + costos.costos_mes if costos.sumar else costos.costos_mes
+    costos_doc = {
+        'mes': costos.mes,
+        'anio': costos.anio,
+        'costos_mes': int(new_total)
+    }
+    await db.costos.update_one(
+        {'mes': costos.mes, 'anio': costos.anio},
+        {'$set': costos_doc},
+        upsert=True
+    )
+    return {'message': 'Costos guardados', **costos_doc}
+@api_router.get('/dashboard/costos')
+async def obtener_costos_mes(
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=2000),
+    current_user: dict = Depends(get_current_user)
+):
+    """Obtener costos guardados del mes"""
+    now = datetime.now(timezone.utc)
+    if month is None:
+        month = now.month
+    if year is None:
+        year = now.year
+    costos_doc = await db.costos.find_one({'mes': month, 'anio': year}, {'_id': 0})
+    return {
+        'mes': month,
+        'anio': year,
+        'costos_mes': int(costos_doc.get('costos_mes', 0)) if costos_doc else 0
+    }
 # ============ ALERTAS ROUTES ============
 
 @api_router.get("/alertas", response_model=List[Alerta])
@@ -702,6 +741,7 @@ async def startup():
     """Inicializar aplicación"""
     await db.socios.create_index('socio_id', unique=True)
     await db.counters.create_index('name', unique=True)
+    await db.custos.create_index([('mes', 1), ('anio', 1)], unique=True)
     await initialize_socio_counter()
     scheduler.add_job(
         ejecutar_alertas_diarias,
