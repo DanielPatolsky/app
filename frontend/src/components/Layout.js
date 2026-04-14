@@ -9,6 +9,7 @@ function Layout({ user, onLogout }) {
   const navigation = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Socios', path: '/socios', icon: Users },
+    { name: 'Profesores', path: '/profesores', icon: Users },
     { name: 'Pagos', path: '/pagos', icon: DollarSign },
     { name: 'Ingresos', path: '/ingresos', icon: DollarSign },
     { name: 'Historial Alertas', path: '/historial-alertas', icon: History },

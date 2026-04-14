@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Query, Body
 from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from pathlib import Path
@@ -19,6 +19,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from app.core.security import get_current_user, create_token, db
 from app.models.user import UserRegister, UserLogin, User, TokenResponse
 from app.models.socio import SocioCreate, SocioUpdate, Socio
+from app.models.profesor import ProfesorCreate, ProfesorUpdate, Profesor
 from app.models.pago import PagoCreate, Pago
 from app.models.dashboard import DashboardStats, IngresoPorDia, CostosMes, Alerta, AlertaEnviada, ConfigMensaje
 from app.models.plan import Plan, PlanCreate, PlanUpdate
@@ -224,6 +225,173 @@ async def eliminar_socio(socio_id: str, current_user: dict = Depends(get_current
         raise HTTPException(status_code=404, detail="Socio no encontrado")
     await db.pagos.delete_many({'socio_id': socio_id})
     return {'message': 'Socio eliminado correctamente'}
+
+# ============ PROFESORES ROUTES ============
+
+@api_router.post("/profesores", response_model=Profesor)
+async def crear_profesor(profesor_data: ProfesorCreate, current_user: dict = Depends(get_current_user)):
+    """Crear nuevo profesor"""
+    next_number = await get_next_sequence('profesor_id')
+    profesor_id = f"PROF-{next_number:04d}"
+    profesor_doc = {
+        'id': str(uuid.uuid4()),
+        'profesor_id': profesor_id,
+        'nombre': profesor_data.nombre,
+        'apellido': profesor_data.apellido,
+        'email': profesor_data.email,
+        'telefono': profesor_data.telefono,
+        'direccion': profesor_data.direccion,
+        'dni': profesor_data.dni,
+        'fecha_registro': datetime.now(timezone.utc).isoformat(),
+        'estado': 'activo',
+        'fecha_vencimiento': None,
+        'socios': []
+    }
+    await db.profesores.insert_one(profesor_doc)
+    profesor_doc.pop('_id', None)
+    return Profesor(**profesor_doc)
+
+@api_router.get("/profesores", response_model=List[Profesor])
+async def listar_profesores(current_user: dict = Depends(get_current_user)):
+    """Listar todos los profesores"""
+    profesores = await db.profesores.find({}, {'_id': 0}).sort('profesor_id', 1).to_list(1000)
+    for profesor in profesores:
+        profesor.setdefault('apellido', '')
+        profesor.setdefault('dni', '')
+        profesor.setdefault('socios', [])
+    profesores = await _populate_profesores_socios(profesores)
+    return [Profesor(**p) for p in profesores]
+
+@api_router.get("/profesores/{profesor_id}", response_model=Profesor)
+async def obtener_profesor(profesor_id: str, current_user: dict = Depends(get_current_user)):
+    """Obtener detalle de un profesor"""
+    profesor = await db.profesores.find_one({'profesor_id': profesor_id}, {'_id': 0})
+    if not profesor:
+        raise HTTPException(status_code=404, detail="Profesor no encontrado")
+    profesor.setdefault('apellido', '')
+    profesor.setdefault('dni', '')
+    profesor.setdefault('socios', [])
+    profesor = await _populate_profesor_socios(profesor)
+    return Profesor(**profesor)
+
+def _is_socio_expired_more_than_5_days(socio: dict) -> bool:
+    if socio.get('estado') != 'vencido':
+        return False
+
+    fecha_vencimiento = socio.get('fecha_vencimiento')
+    if not fecha_vencimiento:
+        return True
+
+    try:
+        fecha_venc = parse_iso_datetime(fecha_vencimiento)
+    except Exception:
+        return True
+
+    return (datetime.now(timezone.utc) - fecha_venc).days > 5
+
+async def _populate_profesor_socios(profesor: dict) -> dict:
+    """Reemplaza socio IDs por objetos con ID y nombre y elimina socios vencidos hace más de 5 días."""
+    socio_ids = profesor.get('socios', []) or []
+    if not socio_ids:
+        profesor['socios'] = []
+        return profesor
+
+    socios = await db.socios.find(
+        {'socio_id': {'$in': socio_ids}},
+        {'_id': 0, 'socio_id': 1, 'nombre': 1, 'apellido': 1, 'estado': 1, 'fecha_vencimiento': 1}
+    ).to_list(len(socio_ids))
+
+    expired_socio_ids = [s['socio_id'] for s in socios if _is_socio_expired_more_than_5_days(s)]
+    if expired_socio_ids:
+        await db.profesores.update_one(
+            {'profesor_id': profesor['profesor_id']},
+            {'$pull': {'socios': {'$in': expired_socio_ids}}}
+        )
+        socio_ids = [sid for sid in socio_ids if sid not in expired_socio_ids]
+
+    socio_map = {s['socio_id']: s for s in socios if s['socio_id'] not in expired_socio_ids}
+    profesor['socios'] = [
+        {
+            'socio_id': sid,
+            'nombre': socio_map.get(sid, {}).get('nombre', ''),
+            'apellido': socio_map.get(sid, {}).get('apellido', '')
+        }
+        for sid in socio_ids
+        if sid in socio_map
+    ]
+    profesor['socios'] = sorted(profesor['socios'], key=lambda s: s['socio_id'])
+    return profesor
+
+async def _populate_profesores_socios(profesores: list) -> list:
+    return [await _populate_profesor_socios(profesor) for profesor in profesores]
+
+@api_router.post("/profesores/{profesor_id}/asociar-socio", response_model=Profesor)
+async def asociar_socio_profesor(
+    profesor_id: str,
+    socio_id: str = Body(..., embed=True),
+    current_user: dict = Depends(get_current_user)
+):
+    """Asociar un socio a un profesor"""
+    profesor = await db.profesores.find_one({'profesor_id': profesor_id}, {'_id': 0})
+    if not profesor:
+        raise HTTPException(status_code=404, detail="Profesor no encontrado")
+
+    await actualizar_estado_socio(socio_id)
+    socio = await db.socios.find_one({'socio_id': socio_id}, {'_id': 0, 'estado': 1, 'fecha_vencimiento': 1})
+    if not socio:
+        raise HTTPException(status_code=404, detail="Socio no encontrado")
+
+    if _is_socio_expired_more_than_5_days(socio):
+        raise HTTPException(status_code=400, detail="No se puede asignar un socio vencido hace más de 5 días")
+
+    if socio_id in profesor.get('socios', []):
+        raise HTTPException(status_code=400, detail="Socio ya está asignado a este profesor")
+
+    await db.profesores.update_one(
+        {'profesor_id': profesor_id},
+        {'$addToSet': {'socios': socio_id}}
+    )
+
+    profesor = await db.profesores.find_one({'profesor_id': profesor_id}, {'_id': 0})
+    profesor.setdefault('apellido', '')
+    profesor.setdefault('dni', '')
+    profesor.setdefault('socios', [])
+    profesor = await _populate_profesor_socios(profesor)
+    return Profesor(**profesor)
+
+@api_router.put("/profesores/{profesor_id}", response_model=Profesor)
+async def actualizar_profesor(profesor_id: str, profesor_data: ProfesorUpdate, current_user: dict = Depends(get_current_user)):
+    """Actualizar datos de un profesor"""
+    update_data = profesor_data.model_dump(exclude_none=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No se proporcionaron datos para actualizar")
+
+    new_profesor_id = update_data.get('profesor_id')
+    if new_profesor_id == '':
+        update_data.pop('profesor_id', None)
+
+    if new_profesor_id and new_profesor_id != profesor_id:
+        existing = await db.profesores.find_one({'profesor_id': new_profesor_id}, {'_id': 0})
+        if existing:
+            raise HTTPException(status_code=400, detail="Ya existe un profesor con ese ID")
+
+    result = await db.profesores.update_one({'profesor_id': profesor_id}, {'$set': update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Profesor no encontrado")
+
+    if new_profesor_id and new_profesor_id != profesor_id:
+        profesor_id = new_profesor_id
+
+    profesor = await db.profesores.find_one({'profesor_id': profesor_id}, {'_id': 0})
+    return Profesor(**profesor)
+
+@api_router.delete("/profesores/{profesor_id}")
+async def eliminar_profesor(profesor_id: str, current_user: dict = Depends(get_current_user)):
+    """Eliminar un profesor"""
+    result = await db.profesores.delete_one({'profesor_id': profesor_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Profesor no encontrado")
+    return {'message': 'Profesor eliminado correctamente'}
 
 # ============ PAGOS ROUTES ============
 
@@ -744,6 +912,7 @@ app.add_middleware(
 async def startup():
     """Inicializar aplicación"""
     await db.socios.create_index('socio_id', unique=True)
+    await db.profesores.create_index('profesor_id', unique=True)
     await db.counters.create_index('name', unique=True)
     await db.custos.create_index([('mes', 1), ('anio', 1)], unique=True)
     await initialize_socio_counter()

@@ -6,6 +6,7 @@ import Socios from './pages/Socios';
 import Pagos from './pages/Pagos';
 import HistorialAlertas from './pages/HistorialAlertas';
 import Planes from './pages/Planes';
+import Profesores from './pages/Profesores';
 import Ingresos from './pages/Ingresos';
 import Layout from './components/Layout';
 import { Toaster } from './components/ui/sonner';
@@ -61,6 +62,7 @@ function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="socios" element={<Socios />} />
+            <Route path="profesores" element={<Profesores />} />
             <Route path="pagos" element={<Pagos />} />
             <Route path="historial-alertas" element={<HistorialAlertas />} />
             <Route path="planes" element={<Planes />} />
