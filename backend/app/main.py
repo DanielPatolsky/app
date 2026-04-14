@@ -353,7 +353,11 @@ async def guardar_costos_mes(costos: CostosMes, current_user: dict = Depends(get
     """Guardar o actualizar los costos de un mes"""
     existing = await db.custos.find_one({'mes': costos.mes, 'anio': costos.anio}, {'_id': 0})
     current_total = int(existing.get('costos_mes', 0)) if existing else 0
-    new_total = current_total + costos.costos_mes if costos.sumar else costos.costos_mes
+    sumar_flag = bool(costos.sumar)
+    if sumar_flag:
+        new_total = current_total + costos.costos_mes
+    else:
+        new_total = costos.costos_mes
     costos_doc = {
         'mes': costos.mes,
         'anio': costos.anio,

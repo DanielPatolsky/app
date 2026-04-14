@@ -57,12 +57,13 @@ function Ingresos() {
       if (Number.isNaN(parsedValue) || parsedValue < 0) {
         throw new Error('Ingrese un valor válido para los costos');
       }
-      await axios.post(`${BACKEND_URL}/api/dashboard/costos`, {
+      const payload = {
         mes: selectedMonth,
         anio: selectedYear,
-        costos_mes: parsedValue,
-        sumar
-      }, {
+        costos_mes: sumar ? costosMes + parsedValue : parsedValue,
+        sumar: false
+      };
+      await axios.post(`${BACKEND_URL}/api/dashboard/costos`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Costos guardados');
@@ -155,70 +156,78 @@ function Ingresos() {
           <p className="text-sm font-medium text-slate-500 mb-1">Costos {monthNames[selectedMonth - 1]} {selectedYear}</p>
           <p className="text-2xl font-bold text-slate-900">${costosMes}</p>
           <div className="mt-5">
-            <label className="text-sm text-slate-500">Agregar costos</label>
+            <label className="text-sm text-slate-500">
+              {isEditingCostos ? 'Editar total de costos' : 'Agregar costos'}
+            </label>
             <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <input
                 type="number"
                 min="0"
                 step="1"
-                value={costosInput}
-                onChange={(e) => setCostosInput(e.target.value.replace(/[^0-9]/g, ''))}
+                value={isEditingCostos ? editingCostosInput : costosInput}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  if (isEditingCostos) {
+                    setEditingCostosInput(value);
+                  } else {
+                    setCostosInput(value);
+                  }
+                }}
                 placeholder="0"
                 className="w-full sm:w-32 px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-700 focus:ring-2 focus:ring-rose-100 focus:border-rose-600 outline-none transition-all"
               />
-              <button
-                type="button"
-                onClick={() => handleSaveCostos(true)}
-                disabled={savingCostos}
-                className="w-full sm:w-auto inline-flex items-center justify-center rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
-              >
-                {savingCostos ? 'Guardando...' : 'Sumar'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditingCostos(true);
-                  setEditingCostosInput(costosMes.toString());
-                }}
-                disabled={savingCostos}
-                className="w-full sm:w-auto inline-flex items-center justify-center rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                Editar total
-              </button>
+              {isEditingCostos ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleEditTotalCostos}
+                    disabled={savingCostos}
+                    className="w-full sm:w-auto inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                  >
+                    {savingCostos ? 'Guardando...' : 'Guardar total'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingCostos(false);
+                      setEditingCostosInput(costosMes.toString());
+                    }}
+                    disabled={savingCostos}
+                    className="w-full sm:w-auto inline-flex items-center justify-center rounded-md bg-slate-400 px-4 py-2 text-sm font-medium text-white hover:bg-slate-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveCostos(true)}
+                    disabled={savingCostos}
+                    className="w-full sm:w-auto inline-flex items-center justify-center rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
+                  >
+                    {savingCostos ? 'Guardando...' : 'Sumar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingCostos(true);
+                      setEditingCostosInput(costosMes.toString());
+                    }}
+                    disabled={savingCostos}
+                    className="w-full sm:w-auto inline-flex items-center justify-center rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    Editar total
+                  </button>
+                </>
+              )}
             </div>
-            <p className="mt-2 text-xs text-slate-500">Presiona <strong>Sumar</strong> para acumular al total o <strong>Editar total</strong> para reemplazarlo.</p>
+            <p className="mt-2 text-xs text-slate-500">
+              {isEditingCostos
+                ? 'Modifica el total directamente y guarda para reemplazarlo.'
+                : 'Presiona Sumar para acumular al total o Editar total para reemplazarlo.'}
+            </p>
           </div>
-          {isEditingCostos && (
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-medium text-slate-700 mb-3">Editar total de costos</p>
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={editingCostosInput}
-                  onChange={(e) => setEditingCostosInput(e.target.value.replace(/[^0-9]/g, ''))}
-                  className="w-full sm:w-32 px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-700 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={handleEditTotalCostos}
-                  disabled={savingCostos}
-                  className="w-full sm:w-auto inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-                >
-                  {savingCostos ? 'Guardando...' : 'Guardar total'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEditingCostos(false)}
-                  disabled={savingCostos}
-                  className="w-full sm:w-auto inline-flex items-center justify-center rounded-md bg-slate-400 px-4 py-2 text-sm font-medium text-white hover:bg-slate-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
