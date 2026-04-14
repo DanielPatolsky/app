@@ -16,7 +16,24 @@ Este repositorio contiene una aplicación full-stack para gestionar un gimnasio 
 ## Estructura del proyecto
 
 - `backend/`
-  - `server.py` — servidor principal en FastAPI con todas las APIs REST
+  - `server.py` — punto de entrada (importa app/main.py)
+  - `app/` — estructura modular de la aplicación
+    - `main.py` — aplicación FastAPI con todos los routers incluidos
+    - `core/` — configuración y seguridad
+      - `security.py` — autenticación JWT, bcrypt, dependencias de FastAPI
+    - `models/` — modelos Pydantic de datos
+      - `user.py` — modelos de autenticación (UserRegister, UserLogin, User, TokenResponse)
+      - `socio.py` — modelos de socios (SocioCreate, Socio)
+      - `pago.py` — modelos de pagos (PagoCreate, Pago)
+      - `plan.py` — modelos de planes (Plan, PlanCreate, PlanUpdate)
+      - `dashboard.py` — modelos de dashboard y alertas (DashboardStats, Alerta, ConfigMensaje, etc.)
+    - `services/` — lógica de negocio
+      - `auth_service.py` — servicios de autenticación (register_user, login_user)
+    - `routers/` — endpoints REST
+      - `auth.py` — rutas de autenticación (GET /auth/me, POST /auth/register, POST /auth/login)
+    - `utils/` — funciones auxiliares y utilidades
+      - `helpers.py` — funciones reutilizables (calcular_fecha_vencimiento, get_next_sequence, etc.)
+      - `notifications.py` — envío de notificaciones por WhatsApp
   - `requirements.txt` — dependencias Python
   - `agregar_datos_prueba.py` — script para insertar datos de prueba
   - `seed_historical_data.py` — script para semilla de datos históricos
@@ -108,7 +125,11 @@ TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
 Desde `backend/`:
 
 ```powershell
+# Opción 1: Usar server.py (punto de entrada original)
 uvicorn server:app --reload --host 0.0.0.0 --port 8000
+
+# Opción 2: Usar app/main.py directamente
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 El backend quedará disponible en `http://localhost:8000` y expone las APIs bajo `/api`.
@@ -143,6 +164,45 @@ npm start
 ```
 
 La aplicación se ejecutará en `http://localhost:3000`.
+
+## Arquitectura modular del backend
+
+A partir de la refactorización, el backend utiliza una arquitectura modular escalable:
+
+### Capa de Modelos (`app/models/`)
+Define los esquemas Pydantic para validación de datos:
+- `user.py` — esquemas de autenticación
+- `socio.py`, `pago.py`, `plan.py` — esquemas de negocio
+- `dashboard.py` — esquemas de estadísticas y alertas
+
+### Capa de Seguridad (`app/core/`)
+Centraliza la lógica de autenticación y configuración:
+- `security.py` — funciones de hashing, JWT, dependencia `get_current_user()`
+
+### Capa de Servicios (`app/services/`)
+Contiene la lógica de negocio desacoplada de los endpoints:
+- `auth_service.py` — `register_user()`, `login_user()`
+
+### Capa de Routers (`app/routers/`)
+Define los endpoints REST:
+- `auth.py` — rutas de autenticación
+
+### Capa de Utilidades (`app/utils/`)
+Funciones reutilizables:
+- `helpers.py` — cálculos, secuencias de BD, actualización de estados
+- `notifications.py` — envío de mensajes
+
+### Punto de Entrada (`app/main.py`)
+- Incluye todos los routers
+- Configura CORS y middleware
+- Configura el scheduler de alertas
+- Define endpoints de dashboard, alertas, planes, exportación
+
+**Ventajas de esta arquitectura:**
+- ✅ Escalabilidad: fácil agregar nuevos módulos sin afectar código existente
+- ✅ Reutilización: funciones y servicios se comparten entre endpoints
+- ✅ Testabilidad: cada capa se puede testear independientemente
+- ✅ Mantenibilidad: código organizado y fácil de entender
 
 ## Endpoints principales
 
