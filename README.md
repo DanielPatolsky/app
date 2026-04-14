@@ -16,7 +16,11 @@ Este repositorio contiene una aplicación full-stack para gestionar un gimnasio 
 ## Estructura del proyecto
 
 - `backend/`
-  - `server.py` — servidor principal en FastAPI con todas las APIs REST
+  - `app/` — estructura modular de la aplicación
+    - `main.py` — punto de entrada de la aplicación FastAPI
+    - `core/`
+      - `config.py` — configuración y variables de entorno
+      - `database.py` — conexión a MongoDB
   - `requirements.txt` — dependencias Python
   - `agregar_datos_prueba.py` — script para insertar datos de prueba
   - `seed_historical_data.py` — script para semilla de datos históricos
@@ -108,7 +112,7 @@ TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
 Desde `backend/`:
 
 ```powershell
-uvicorn server:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 El backend quedará disponible en `http://localhost:8000` y expone las APIs bajo `/api`.

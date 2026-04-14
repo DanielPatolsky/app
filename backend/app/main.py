@@ -1,7 +1,6 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
-from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
@@ -20,8 +19,7 @@ import urllib.parse
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment
+import io
 
 try:
     from twilio.rest import Client as TwilioClient
@@ -29,15 +27,11 @@ try:
 except ImportError:
     TWILIO_AVAILABLE = False
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+from .core.config import settings
+from .core.database import client, db
 
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
-
-JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
-JWT_ALGORITHM = 'HS256'
+JWT_SECRET = settings.JWT_SECRET
+JWT_ALGORITHM = settings.JWT_ALGORITHM
 
 TWILIO_ACCOUNT_SID  = os.environ.get('TWILIO_ACCOUNT_SID', '')
 TWILIO_AUTH_TOKEN   = os.environ.get('TWILIO_AUTH_TOKEN', '')
@@ -47,6 +41,15 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
 scheduler = AsyncIOScheduler()
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -833,7 +836,6 @@ async def exportar_pagos_excel(current_user: dict = Depends(get_current_user)):
 # ============ APP STARTUP / SHUTDOWN ============
 
 app.include_router(api_router)
-app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','), allow_methods=["*"], allow_headers=["*"])
 
 @app.on_event("startup")
 async def startup():
